@@ -33,7 +33,7 @@ object Lists {
    *
    * {{{
    *   List[A]#foldRight[B](z: B)(f: (A, B) => B)
-   *   List[A]#foldLeft[B](z: B)(f: (B, A) => A)
+   *   List[A]#foldLeft[B](z: B)(f: (B, A) => B)
    * }}}
    *
    */
@@ -48,7 +48,10 @@ object Lists {
    * resX: Int = 4
    */
   def length[A](xs: List[A]): Int =
-    ???
+    xs match {
+      case Nil => 0
+      case h :: t => 1 + length(t)
+    }
 
   /*
    * Exercise 2:
@@ -59,7 +62,7 @@ object Lists {
    * resX: Int = 4
    */
   def lengthX[A](xs: List[A]): Int =
-    ???
+    xs.foldRight(0)((_, accum) => accum + 1)
 
   /*
    * Exercise 3:
@@ -70,7 +73,15 @@ object Lists {
    * resX: List[Int] = List(1, 2, 3, 4, 5, 6, 7, 8)
    */
   def append[A](x: List[A], y: List[A]): List[A] =
-    ???
+    x.foldRight(y)((v, accum) => v :: accum)
+
+
+  def append2[A](x: List[A], y: List[A]): List[A] =
+    (x, y) match {
+      case (Nil, y) => y
+      case (x, Nil) => x
+      case (h :: t, y) => h :: append2(t, y)
+    }
 
   /*
    * Exercise 4:
@@ -88,7 +99,7 @@ object Lists {
    *     not infer what you mean.
    */
   def map[A, B](xs: List[A])(f: A => B): List[B] =
-    ???
+    xs.foldRight(Nil : List[B])((v, accum) => f(v) :: accum)
 
   /*
    * Exercise 5:
@@ -99,7 +110,7 @@ object Lists {
    * resX: List[Int] = List(1, 2)
    */
   def filter[A](xs: List[A])(p: A => Boolean): List[A] =
-    ???
+    xs.foldRight(Nil : List[A])((v, accum) => if(p(v)) v :: accum else accum)
 
   /*
    * Exercise 6:
@@ -117,8 +128,7 @@ object Lists {
    *     not infer what you mean.
    */
   def reverse[A](xs: List[A]): List[A] =
-    ???
-
+    xs.foldLeft(Nil : List[A])((accum, v) => v :: accum)
 
   /*
    * *Challenge* Exercise 7:
@@ -134,7 +144,17 @@ object Lists {
    * resX: Option[List[Int]] = None
    */
   def sequence[A](xs: List[Option[A]]): Option[List[A]] =
-    ???
+    xs.foldRight(Some(List()): Option[List[A]])((v, accum) => v.flatMap(x => accum.map(y => x :: y)))
+
+  def sequence2[A](xs: List[Option[A]]): Option[List[A]] = {
+    val some = xs.foldRight(Nil : List[A])((v, accum) => {
+      v match {
+        case Some(a) => a :: accum
+        case None => Nil
+      }
+    })
+    if (Lists.length(some) == Lists.length(xs)) Some(some) else None
+  }
 
   /*
    * *Challenge* Exercise 8:
