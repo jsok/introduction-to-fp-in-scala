@@ -1,12 +1,11 @@
 package intro
 
-
 /*
  * Optional is a data type used to represent a value which may
  * or may not be set. An optional may either be _Full_ and contain
  * a value _or_ be _Empty_ and not contain a value.
  *
- * This is directly equivelant to the Option type in the scala
+ * This is directly equivalent to the Option type in the scala
  * standard library where Some -> Full, and None -> Empty.
  */
 sealed trait Optional[A] {
@@ -22,14 +21,16 @@ sealed trait Optional[A] {
    * scala> Full(1).fold(x => x, 0)
    *  = 1
    *
-   * scala> Empty().fold(x => x, 0)
+   * scala> Empty[Int]().fold(x => x, 0)
    *  = 0
    */
   def fold[X](
     full: A => X,
     empty: => X
-  ): X =
-    ???
+  ): X = this match {
+    case Full(v) => full(v)
+    case Empty() => empty
+  }
 
   /*
    * Implement map for Optional[A].
@@ -42,10 +43,13 @@ sealed trait Optional[A] {
    *  = Full(11)
    *
    * scala> Empty[Int]().map(x => x + 10)
-   *  = Emptyy()
+   *  = Empty()
    */
   def map[B](f: A => B): Optional[B] =
-    ???
+    this match {
+      case Full(v) => Full(f(v))
+      case Empty() => Empty[B]()
+    }
 
   /*
    * Implement flatMap.
@@ -56,16 +60,24 @@ sealed trait Optional[A] {
    * scala> Full(1).flatMap(x => Full(x + 10))
    *  = Full(11)
    *
+   * scala> Full(1).flatMap(x => Full(x + 10)).flatMap(x => Full(x - 10))
+   *  = Full(1)
+   *
    * scala> Full(1).flatMap(x => Empty[Int]())
    *  = Empty(Unauthorized)
    *
-   * scala> Empty[Int]().map(x => Full(x + 10))
+   * scala> Empty[Int]().flatMap(x => Full(x + 10))
    *  = Empty()
    *
    * Advanced: Try using fold.
    */
-  def flatMap[B](f: A => Optional[B]): Optional[B] =
-    ???
+  def flatMap[B](f: A => Optional[B]): Optional[B] = fold(f, Empty[B]())
+
+  def flatMap2[B](f: A => Optional[B]): Optional[B] =
+    this match {
+      case Empty() => Empty[B]()
+      case Full(v) => f(v)
+    }
 
   /*
    * Extract the value if it is success case otherwise use default value.
@@ -78,7 +90,7 @@ sealed trait Optional[A] {
    *  = 10
    */
   def getOrElse(otherwise: => A): A =
-    ???
+    fold(x => x, otherwise)
 
   /*
    * Implement choice, take this result if successful otherwise take
@@ -97,7 +109,7 @@ sealed trait Optional[A] {
    *  = Empty()
    */
   def |||(alternative: => Optional[A]): Optional[A] =
-    ???
+    fold(x => Full(x), alternative)
 }
 
 case class Full[A](a: A) extends Optional[A]
