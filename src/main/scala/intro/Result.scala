@@ -41,7 +41,10 @@ sealed trait Result[A] {
     fail: Error => X,
     ok: A => X
   ): X =
-    ???
+    this match {
+      case Fail(err) => fail(err)
+      case Ok(v) => ok(v)
+    }
 
   /*
    * Exercise 2:
@@ -65,8 +68,7 @@ sealed trait Result[A] {
    *
    * Advanced: Try using fold.
    */
-  def flatMap[B](f: A => Result[B]): Result[B] =
-    ???
+  def flatMap[B](f: A => Result[B]): Result[B] = fold(Fail[B], f)
 
   /*
    * Exercise 3:
@@ -85,8 +87,9 @@ sealed trait Result[A] {
    *
    * Advanced: Try using flatMap.
    */
-  def map[B](f: A => B): Result[B] =
-    ???
+  def map[B](f: A => B): Result[B] = flatMap(x => Ok[B](f(x)))
+
+  def map2[B](f: A => B): Result[B] = fold(Fail[B], x => Ok[B](f(x)))
 
   /*
    * Exercise 4:
@@ -99,8 +102,7 @@ sealed trait Result[A] {
    * scala> Fail(NotEnoughInput).getOrElse(10)
    *  = 10
    */
-  def getOrElse(otherwise: => A): A =
-    ???
+  def getOrElse(otherwise: => A): A = fold(_ => otherwise, x => x)
 
   /*
    * Exercise 5:
@@ -121,7 +123,7 @@ sealed trait Result[A] {
    *  = Fail[Int](UnexpectedInput("?"))
    */
   def |||(alternative: => Result[A]): Result[A] =
-    ???
+    fold(_ => alternative, x => Ok(x))
 }
 
 object Result {
@@ -157,7 +159,6 @@ object Result {
     ???
 }
 
-
 /*
  * *Challenge* Exercise 7: The worlds most trivial calculator.
  *
@@ -184,19 +185,32 @@ object ResultExample {
    *       if it is not a valid Int :| i.e. use try catch.
    */
   def int(body: String): Result[Int] =
-    ???
+    try {
+      Ok(body.toInt)
+    } catch {
+      case err : NumberFormatException => Fail(NotANumber(body))
+    }
 
   /*
    * Parse the operation if it is valid, otherwise fail with InvalidOperation.
    */
   def operation(op: String): Result[Operation] =
-    ???
+    op match {
+      case "+" => Ok(Plus)
+      case "-" => Ok(Minus)
+      case "*" => Ok(Multiply)
+      case _   => Fail(InvalidOperation(op))
+    }
 
   /*
    * Compute an `answer`, by running operation for n and m.
    */
   def calculate(op: Operation, n: Int, m: Int): Int =
-     ???
+     op match {
+       case Plus     => n + m
+       case Minus    => n - m
+       case Multiply => n * m
+     }
 
   /*
    * Attempt to compute an `answer`, by:
@@ -208,14 +222,23 @@ object ResultExample {
    * hint: use flatMap / map
    */
   def attempt(op: String, n: String, m: String): Result[Int] =
-     ???
+    // operation(op).flatMap(op => int(n).flatMap(n => int(m).map(m => calculate(op, n, m))))
+     for {
+       oper <- operation(op)
+       a    <- int(n)
+       b    <- int(m)
+     } yield calculate(oper, a, b)
 
   /*
    * Run a calculation by pattern matching three elements off the input arguments,
    * parsing the operation, a value for n and a value for m.
    */
   def run(args: List[String]): Result[Int] =
-    ???
+    args match {
+      case n :: op :: m :: Nil     => attempt (op, n, m)
+      case _ :: _  :: _ :: un :: _ => Fail(UnexpectedInput(un))
+      case _                       => Fail(NotEnoughInput)
+    }
 
   def main(args: Array[String]) =
     println(run(args.toList) match {
