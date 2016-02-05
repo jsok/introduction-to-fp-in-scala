@@ -105,7 +105,7 @@ object EqualLaws {
     Equal[A].equal(f, f)
 
   def transitive[A: Equal](a1: A, a2: A, a3: A): Boolean =
-    !(Equal[A].equal(a1, a2) && Equal[A].equal(a2, a3)) || Equal[A].equal(a1, a3)
+    (Equal[A].equal(a1, a2) && Equal[A].equal(a2, a3)) == Equal[A].equal(a1, a3)
 }
 
 /**
