@@ -235,9 +235,9 @@ object ResultExample {
    */
   def run(args: List[String]): Result[Int] =
     args match {
-      case n :: op :: m :: Nil     => attempt (op, n, m)
-      case _ :: _  :: _ :: un :: _ => Fail(UnexpectedInput(un))
-      case _                       => Fail(NotEnoughInput)
+      case List(n, op, m)     => attempt (op, n, m)
+      case _ :: _  :: _ :: un => Fail(UnexpectedInput(un.mkString(" ")))
+      case _                  => Fail(NotEnoughInput)
     }
 
   def main(args: Array[String]) =
