@@ -27,6 +27,7 @@ case class Size(n: Int)
 case class Endo[A](f: A => A)
 case class First[A](first: Option[A])
 case class Last[A](last: Option[A])
+case class Stringy(str: String)
 
 object Monoid {
   /**
@@ -40,44 +41,77 @@ object Monoid {
   /* Monoid instances */
 
   /** Exercise 1: A monoid which takes the sum of the underlying integer values */
-  implicit def SumMonoid: Monoid[Sum] =
-    ???
+  implicit def SumMonoid: Monoid[Sum] = new Monoid[Sum] {
+    def identity: Sum = Sum(0)
+    def op(x: Sum, y: Sum) = Sum(x.n + y.n)
+  }
+
+  implicit def StringyMonoid: Monoid[Stringy] = new Monoid[Stringy] {
+    def identity: Stringy = Stringy("")
+    def op(x: Stringy, y: Stringy) = Stringy(x.str ++ y.str)
+  }
 
   /** Exercise 2: A monoid which takes the multiplication of the underlying integer values */
-  implicit def ProductMonoid: Monoid[Product] =
-    ???
+  implicit def ProductMonoid: Monoid[Product] = new Monoid[Product] {
+    def identity: Product = Product(1)
+    def op(x: Product, y: Product) = Product(x.n * y.n)
+  }
 
   /** Exercise 3: A monoid which takes the minimum of the underlying integer values */
-  implicit def MinMonoid: Monoid[Min] =
-    ???
+  implicit def MinMonoid: Monoid[Min] = new Monoid[Min] {
+    def identity: Min = Min(Int.MinValue)
+    def op(x: Min, y: Min) = if(x.n < y.n) Min(x.n) else Min(y.n)
+  }
 
   /** Exercise 4: A monoid which takes the maximum of the underlying integer values */
-  implicit def MaxMonoid: Monoid[Max] =
-    ???
+  implicit def MaxMonoid: Monoid[Max] = new Monoid[Max] {
+    def identity: Max = Max(Int.MaxValue)
+    def op(x: Max, y: Max) = if(x.n > y.n) x else y
+  }
 
   /** Exercise 5: A monoid which counts the number of underlying values */
-  implicit def SizeMonoid: Monoid[Size] =
-    ???
+  implicit def SizeMonoid: Monoid[Size] = new Monoid[Size] {
+    def identity: Size = Size(0)
+    def op(x: Size, y: Size): Size = Size(x.n + y.n)
+  }
 
   /** Exercise 6: A monoid which composes the underlying functions */
-  implicit def EndoMonoid[A]: Monoid[Endo[A]] =
-    ???
+  implicit def EndoMonoid[A]: Monoid[Endo[A]] = new Monoid[Endo[A]] {
+    def identity: Endo[A] = Endo(x => x)
+    def op(x: Endo[A], y: Endo[A]): Endo[A] = Endo(v => y.f(x.f(v)))
+  }
 
   /** Exercise 7: A monoid which always takes the first value */
-  implicit def FirstMonoid[A]: Monoid[First[A]] =
-    ???
+  implicit def FirstMonoid[A]: Monoid[First[A]] = new Monoid[First[A]] {
+    def identity: First[A] = First(None)
+    def op(x: First[A], y: First[A]): First[A] = x.first.fold(y)(_ => x)
+  }
 
   /** Exercise 8: A monoid which always takes the last value */
-  implicit def LastMonoid[A]: Monoid[Last[A]] =
-    ???
+  implicit def LastMonoid[A]: Monoid[Last[A]] = new Monoid[Last[A]] {
+    def identity: Last[A] = Last(None)
+    def op(x: Last[A], y: Last[A]): Last[A] = y.last.fold(x)(_ => y)
+  }
 
   /** Exercise 9: A monoid which concatenates lists */
-  implicit def ListMonoid[A]: Monoid[List[A]] =
-    ???
+  implicit def ListMonoid[A]: Monoid[List[A]] = new Monoid[List[A]] {
+    def identity: List[A] = List.empty
+    def op(x: List[A], y: List[A]): List[A] = x ++ y
+  }
 
-  /** Exercise 10: A monoid which unions the map, applying op to merge values */
-  implicit def MapMonoid[A, B: Monoid]: Monoid[Map[A, B]] =
-    ???
+  /** Exercise 10: A monoid which unions the map, applying op to merge values
+    *
+    * Example:
+    * scala> MapMonoid[String, Sum].op(Map("a" -> Sum(1), "b" -> Sum(1)), Map("a" -> Sum(1), "c" -> Sum(1)))
+    * res: Map[String,intro.Sum] = Map(a -> Sum(2), b -> Sum(1), c -> Sum(1))
+    */
+  implicit def MapMonoid[A, B: Monoid]: Monoid[Map[A, B]] = new Monoid[Map[A, B]] {
+    def identity: Map[A, B] = Map.empty
+    def op(x: Map[A, B], y: Map[A, B]): Map[A, B] = y.foldLeft(x) {
+      // a is x, (k, v) are pairs in y.
+      case (a, (k, v)) => a + (k -> Monoid[B].op(v, a.getOrElse(k, Monoid[B].identity)))
+    }
+  }
 
   /*  Monoid library */
 
@@ -92,8 +126,10 @@ object Monoid {
    * scala> foldMap(List(1, 2, 3, 4, 5))(x => Sum(x))
    *  = Sum(15)
    */
-  def foldMap[A, B: Monoid](xs: List[A])(f: A => B): B =
-    ???
+  def foldMap[A, B: Monoid](xs: List[A])(f: A => B): B = xs.foldLeft(Monoid[B].identity) {
+    (a: B, v: A) => Monoid[B].op(f(v), a)
+  }
+
 
   /**
    * Exercise 12
@@ -104,8 +140,11 @@ object Monoid {
    *  = "hello world"
    */
   def sum[A: Monoid](xs: List[A]): A =
-    ???
+    xs.foldLeft(Monoid[A].identity) {
+      (a: A, v: A) => Monoid[A].op(a, v)
+    }
 }
+
 
 object MonoidSyntax {
   implicit class AnyMonoidSyntax[A: Monoid](value: A) {
