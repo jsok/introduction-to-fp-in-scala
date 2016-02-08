@@ -166,6 +166,15 @@ object MonoidChallenge {
   case class Stats(min: Int, max: Int, total: Int, count: Int, average: Int)
   case class Stock(ticker: String, date: String, cents: Int)
 
+  // Will implicitly use Tuple4Monoid
+  type StatTuple = (Min, Max, Sum, Size)
+
+  def statsFromTuple(t: StatTuple): Stats = {
+    t match {
+      case (Min(min), Max(max), Sum(total), Size(count)) => Stats(min, max, total, count, if (count == 0) 0 else total / count)
+    }
+  }
+
   /**
    * Compute a map of ticker -> stats from the given data, ignoring any data
    * points that do _not_ match predicate.
@@ -179,11 +188,18 @@ object MonoidChallenge {
    * Example, only include particular days of data:
    *   MonoidChallenge.compute(MonoidChallenge.Data, stock => stock.date == "2012-01-01" || stock.date == "2012-01-02")
    *
-   * Note there are monoid instances for tuples whos components are all monoids
+   * Note there are monoid instances for tuples whose components are all monoids
    * (this may be useful, but is not the only way to solve this problem).
    */
   def compute(data: List[Stock], predicate: Stock => Boolean): Map[String, Stats] =
-    ???
+    Monoid.foldMap(data) {
+      case s @ Stock(t, _, c) if predicate(s) => Map((t, new StatTuple(Min(c), Max(c), Sum(c), Size(1))))
+      case Stock(t, _, _) => Map((t, Monoid[StatTuple].identity))
+    }.map {
+      case (ticker, statTuple) => (ticker, statsFromTuple(statTuple))
+    }.filter {
+      case (_, s) => s.count != 0
+    }
 
   def Data = List(
     Stock("FAKE", "2012-01-01", 10000)
