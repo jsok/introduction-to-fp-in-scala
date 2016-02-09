@@ -21,8 +21,7 @@ case class Writer[W, A](log: W, value: A) {
    *  2) r.map(z => f(g(z))) == r.map(g).map(f)
    *
    */
-  def map[B](f: A => B): Writer[W, B] =
-    ???
+  def map[B](f: A => B): Writer[W, B] = Writer(log, f(value))
 
   /*
    * Exercise 3.2:
@@ -33,8 +32,11 @@ case class Writer[W, A](log: W, value: A) {
    *   r.flatMap(f).flatMap(g) == r.flatMap(z => f(z).flatMap(g))
    *
    */
-  def flatMap[B](f: A => Writer[W, B])(implicit M: Monoid[W]): Writer[W, B] =
-    ???
+  def flatMap[B](f: A => Writer[W, B])(implicit M: Monoid[W]): Writer[W, B] = {
+    val b: Writer[W, B] = f(value)
+    Writer(M.op(log, b.log), b.value)
+  }
+
 }
 
 object Writer {
@@ -46,8 +48,7 @@ object Writer {
    *
    * Hint: Try using Writer constructor.
    */
-  def value[W: Monoid, A](a: A): Writer[W, A] =
-    ???
+  def value[W: Monoid, A](a: A): Writer[W, A] = Writer(Monoid[W].identity, a)
 
   /*
    * Exercise 3.4:
@@ -58,16 +59,22 @@ object Writer {
    *
    * Hint: Try using Writer constructor.
    */
-  def tell[W](w: W): Writer[W, Unit] =
-    ???
+  def tell[W](w: W): Writer[W, Unit] = Writer(w, Unit)
 
   /*
    * Exercise 3.5:
    *
-   * Sequence, a list of Readers, to a Reader of Lists.
+   * Sequence, a list of Writers, to a Writer of lists.
    */
-  def sequence[W: Monoid, A](writers: List[Writer[W, A]]): Writer[W, List[A]] =
-    ???
+  def sequence[W: Monoid, A](writers: List[Writer[W, A]]): Writer[W, List[A]] = {
+    val z = (Monoid[W].identity, List.empty[A])
+    val (log, value) = writers.foldRight(z) {
+      case (w, (aLog, aVal)) => w.run match {
+        case (l, v) => (Monoid[W].op(l, aLog), v :: aVal)
+      }
+    }
+    Writer(log, value)
+  }
 
   class Writer_[W] {
     type l[a] = Writer[W, a]
@@ -99,7 +106,7 @@ object Writer {
  *  1000 cents to every value under 10000 and 10 cents to every
  *  value equal to or over 10000.
  *
- * However, while we compute this answer we also want to caculate
+ * However, while we compute this answer we also want to calculate
  * summary statistics for our data, specifically, min, max, total,
  * and count.
  *
@@ -114,22 +121,36 @@ object WriterExample {
   case class Stock(ticker: String, date: String, cents: Int)
 
   /**
-   * Implement our algorthim.
+   * Implement our algorithm.
    *
    * Hint: Writer(W, A) and Writer.sequence will be useful here.
    */
-  def stocks(data: List[Stock]): (Stats, List[Stock]) =
-    ???
+  def stocks(data: List[Stock]): (Stats, List[Stock]) = {
+    def adjustment(stock: Stock): Stock = stock match {
+      case Stock(t, d, c) if c < 10000  => Stock(t, d, c + 1000)
+      case Stock(t, d, c) if c >= 10000 => Stock(t, d, c + 10)
+    }
+    def stock2Stats(stock: Stock): Stats = Stats(stock.cents, stock.cents, stock.cents, 1)
+    def stock2Writer(stock: Stock): Writer[Stats, Stock] = {
+      val adjStock: Stock = adjustment(stock)
+      Writer(stock2Stats(adjStock), adjStock)
+    }
+    val writers: List[Writer[Stats, Stock]] = data.map(stock2Writer)
+    Writer.sequence(writers).run
+  }
 
   /**
    * A monoid for Stats.
    */
   implicit def StatsMonoid: Monoid[Stats] =
     new Monoid[Stats] {
-      def identity =
-        ???
-      def op(l: Stats, r: Stats) =
-        ???
+      def identity = Stats(Int.MaxValue, Int.MinValue, 0, 0)
+      def op(l: Stats, r: Stats) = Stats(
+        Math.min(l.min, r.min),
+        Math.max(l.max, r.max),
+        l.total + r.total,
+        l.count + r.count
+      )
     }
 
   def exampledata = List(
