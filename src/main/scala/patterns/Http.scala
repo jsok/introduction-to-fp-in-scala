@@ -93,8 +93,7 @@ object Http {
    * Hint: You may want to define some other combinators to help
    *       that have not been specified yet, remember exercise 2 ask?
    */
-  def getBody: Http[String] =
-    Http((r, s) => (Monoid[HttpWrite].identity, s, HttpValue.ok(r.body)))
+  def getBody: Http[String] = httpAsk.map(r => r.body)
 
   /*
    * Exercise 8a.8:
@@ -105,8 +104,7 @@ object Http {
    *       that have not been specified yet, remember exercise 4 update?
    */
   def addHeader(name: String, value: String): Http[Unit] = {
-    val p: (String, String) = (name, value)
-    httpModify(s => HttpState(s.resheaders :+ p))
+    httpModify(s => HttpState(s.resheaders :+ ((name, value))))
   }
 
   /*
@@ -145,9 +143,16 @@ object HttpExample {
   def echo: Http[String] =
     for {
       b <- getBody
-      h <- addHeader("content-type", "text/plain")
-      l <- log("length of body is: " ++ b.length.toString)
+      _ <- addHeader("content-type", "text/plain")
+      _ <- log("length of body is: " ++ b.length.toString)
     } yield b
+
+  def echo2: Http[String] = {
+    getBody
+      .flatMap((b: String) => addHeader("content-type", "text/plain")
+        .flatMap(_ => log("length of body is: " ++ b.length.toString)
+          .map(_ => b)))
+  }
 }
 
 /** Data type wrapping up all http state data */
